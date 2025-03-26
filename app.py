@@ -1,15 +1,19 @@
+# filepath: d:\chatbot\chatbot-ai\app.py
 from flask import Flask, render_template, request, jsonify
 import threading
 import pyttsx3
 import speech_recognition as sr
 import openai
-from config import apikey
+from dotenv import load_dotenv
+import os
 from responses import predefined_responses
+
+load_dotenv()  # Load environment variables from .env file
 
 app = Flask(__name__)
 
 # Your existing functions go here (say, chat, takeCommand, etc.)
-openai.api_key = apikey
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def say(text):
     engine = pyttsx3.init()
