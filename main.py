@@ -9,13 +9,17 @@ from responses import predefined_responses
 import os
 from googleapiclient.discovery import build
 from flask import Flask, request, jsonify, render_template
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Flask app setup
 app = Flask(__name__)
 
 # Google API and Custom Search Engine (CSE) setup
-GOOGLE_API_KEY = 'AIzaSyBLnLWePnIahg2Qhz1f2Pj2K2FH9UHzC9A'
-GOOGLE_CSE_ID = '144a23a7e8a1c4653'
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+GOOGLE_CSE_ID = os.getenv('GOOGLE_CSE_ID')
 
 chatStr = ""
 listening_mode = False
