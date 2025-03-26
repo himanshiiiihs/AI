@@ -37,7 +37,7 @@ def chat(query):
             else:
                 return "Sorry, I couldn't find any results."
 
-    if "play my favourite music" in query:
+    if "play my favourite musics" in query:
         musicPath = "https://www.youtube.com/watch?v=gJLVTKhTnog"
         say("Ok ma'am, wait.")
         webbrowser.open(musicPath)
