@@ -3,7 +3,7 @@ import webbrowser
 import pyttsx3
 import datetime
 import speech_recognition as sr
-
+import openai
 from config import apikey
 from responses import predefined_responses
 import os
@@ -25,7 +25,6 @@ def chat(query):
     global chatStr
     query = query.lower()
 
-    # Check if the query starts with "google" to initiate a web search
     if query.startswith(("google", "open")):
         search_query = query.replace("google", "", 1).replace("open", "", 1).strip()
         if search_query:
@@ -47,11 +46,9 @@ def chat(query):
         return "Opening YouTube."
 
     if "the time" in query:
-        hour = datetime.datetime.now().strftime("%H")
-        min = datetime.datetime.now().strftime("%M")
-        current_time = f"Ma'am, the time is {hour} hours and {min} minutes."
-        say(current_time)
-        return current_time
+        current_time = datetime.datetime.now().strftime("%H hours and %M minutes")
+        say(f"Ma'am, the time is {current_time}.")
+        return f"Ma'am, the time is {current_time}."
 
     if query in predefined_responses:
         response_text = predefined_responses[query]
@@ -69,12 +66,6 @@ def chat(query):
             temperature=0.7,
         )
         response_text = response["choices"][0]["message"]["content"].strip()
-
-        # Check for code in the response and format it accordingly
-        if "```" in response_text or "Here's the code" in response_text.lower():
-            response_text = response_text.replace("```", "")
-            response_text = f"<pre><code>{response_text}</code></pre>"
-
         chatStr += f"{response_text}\n"
         return response_text
     except Exception as e:
@@ -84,13 +75,10 @@ def chat(query):
 def say(text):
     engine = pyttsx3.init()
     voices = engine.getProperty('voices')
-
-    # Select a female voice
     for voice in voices:
-        if "female" in voice.name.lower() or "zira" in voice.name.lower():  # "Zira" is a common Windows female voice
+        if "female" in voice.name.lower() or "zira" in voice.name.lower():
             engine.setProperty('voice', voice.id)
             break
-
     engine.say(text)
     engine.runAndWait()
 
@@ -100,31 +88,20 @@ def takeCommand():
         audio = r.listen(source)
         try:
             print("Recognizing...")
-            query = r.recognize_google(audio, language="en-in")
-            print(f"User said: {query}")
-            return query
+            return r.recognize_google(audio, language="en-in")
         except sr.UnknownValueError:
             return "Sorry, I did not catch that."
-        except sr.RequestError as e:
+        except sr.RequestError:
             return "Sorry, there was an error with the request."
 
 def search_web(query):
     search_query = query.strip()
-    
     if search_query:
         try:
-            # Initialize the Google Custom Search API service
             service = build("customsearch", "v1", developerKey=GOOGLE_API_KEY)
-            
-            # Make the API request with the search query
             response = service.cse().list(q=search_query, cx=GOOGLE_CSE_ID).execute()
-            
-            # Check if there are results
-            if 'items' in response and len(response['items']) > 0:
-                first_result = response['items'][0]
-                link = first_result.get('link')
-                
-                # Open the first result in the web browser
+            if 'items' in response and response['items']:
+                link = response['items'][0].get('link')
                 say("Opening the first Google search result.")
                 webbrowser.open(link)
                 return True
@@ -140,7 +117,7 @@ def search_web(query):
         return False
 
 def listen_for_trigger():
-    global listening_mode
+    global listening_mode, chat_mode
     print("Listening for trigger...")
     while True:
         query = takeCommand().lower()
@@ -150,7 +127,6 @@ def listen_for_trigger():
             break
         elif "nova chat" in query:
             say("Chat mode activated.")
-            global chat_mode
             chat_mode = True
             break
 
@@ -160,23 +136,19 @@ def reset_modes():
     chat_mode = False
     listen_for_trigger()
 
-# Flask route to render HTML
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# Flask route to handle chat requests
 @app.route('/chat', methods=['POST'])
 def chat_route():
     user_query = request.form.get('query')
     speak = request.form.get('speak')
-
     if user_query:
         response = chat(user_query)
         if speak == "true" and response:
             say(response)
         return jsonify({"response": response})
-    
     return jsonify({"response": "Sorry, I didn't understand your request."})
 
 if __name__ == '__main__':
@@ -184,14 +156,11 @@ if __name__ == '__main__':
         print('Welcome to Nova A.I')
         say("Hello ma'am, I am Nova created by Himanshi. How may I assist you?")
         webbrowser.open("http://127.0.0.1:5000")
-
     app.run(debug=True)
-
     listen_for_trigger()
     while True:
         if not listening_mode and not chat_mode:
             reset_modes()
-
         if chat_mode:
             query = input("Type your message: ").lower()
             if "ok thank you" in query or "nova quit" in query:
@@ -208,43 +177,10 @@ if __name__ == '__main__':
                 reset_modes()
         elif listening_mode:
             query = takeCommand().lower()
-
-            if "ok thank you" in query:
+            if "ok thank you" in query or "nova quit" in query:
                 say("Goodbye!")
                 break
-
-            if "play my favourite music" in query:
-                musicPath = "https://www.youtube.com/watch?v=gJLVTKhTnog"
-                say("Ok ma'am, wait.")
-                webbrowser.open(musicPath)
-                reset_modes()
-                continue
-
-            elif "open youtube" in query:
-                Path = "https://www.youtube.com/"
-                say("Ok ma'am, wait.")
-                webbrowser.open(Path)
-                reset_modes()
-                continue
-
-            elif "the time" in query:
-                hour = datetime.datetime.now().strftime("%H")
-                min = datetime.datetime.now().strftime("%M")
-                say(f"Ma'am, the time is {hour} hours and {min} minutes.")
-                reset_modes()
-                continue
-
-            elif "nova quit" in query:
-                say("Goodbye!")
-                break
-
-            elif "reset chat" in query:
-                chatStr = ""
-                reset_modes()
-                continue
-
-            else:
-                response = chat(query)
-                if response:
-                    say(response)
-                reset_modes()
+            response = chat(query)
+            if response:
+                say(response)
+            reset_modes()
